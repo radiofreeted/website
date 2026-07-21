@@ -40,6 +40,15 @@ requires **CloudKit Sharing (`CKShare`)**:
 
 ## 2. Core features (v1)
 
+**Primary workflow** — the app is used in this order each week:
+1. **Plan** — assign recipes to dinner slots for the week (§2.3).
+2. **Pick stores** — choose which of your configured stores (§2.1) you're
+   actually shopping at this week; you don't have to hit all of them every
+   week.
+3. **Generate** — build the shopping list from that week's recipes, each
+   item routed to one of the stores you picked (§2.1's generation logic) and
+   sorted by that store's aisle order.
+
 ### 2.1 Shared shopping list
 - Live-synced across both phones.
 - Items added manually, or generated from recipes / the weekly plan.
@@ -58,6 +67,25 @@ requires **CloudKit Sharing (`CKShare`)**:
     sectionOrder`) already supports a short list, no special-casing needed.
   - "Other" has no fixed section order; items assigned to it just show
     unsorted, or sorted by the app-wide default category order.
+- **Store admin screen:** where you manage all of the above —
+  add/edit/remove stores, and for each store, drag-and-drop reorder its
+  categories into shopping order.
+- **Preferred store per category:** also in the admin screen, set a default
+  store for each grocery category — e.g. Meat → Avedano's, Seafood →
+  Billingsgate, Produce → Whole Foods. This is what auto-routes each
+  ingredient to a store when the list is generated (see §6 for the default
+  category list, split into `Meat` / `Seafood` specifically so each can have
+  its own preferred store).
+- **List generation logic:** for the stores picked that week (see workflow
+  above), each merged ingredient (quantity-merging rules above) looks up its
+  category's preferred store:
+  - If that store was picked for this week → item lands there, sorted by
+    that store's category order.
+  - If its preferred store wasn't picked this week → item lands in an
+    **Unassigned** section at the top of the list, so you manually assign it
+    to one of this week's chosen stores (or to "Other") with a tap.
+  - Any item can also be manually re-assigned to a different store than its
+    category default, for one-off overrides.
 - The list is a standing "next week" list: items persist and get added to /
   checked off continuously rather than being wiped each week — checked-off
   items clear, but the list itself carries forward.
@@ -138,9 +166,13 @@ instructions, tags (cuisine/meal type), optional photo, notes.
 - `Ingredient`: id, recipeId, originalText, canonicalName, quantity, unit,
   unitFamily (volume/weight/count), category
 - `Store`: id, name, sectionOrder: [Category] (ordered)
+- `CategoryPreference`: category, preferredStoreId (admin-configured default
+  routing, e.g. Meat → Avedano's)
 - `ShoppingListItem`: id, canonicalName, displayQuantities: [(quantity, unit)]
   (one entry per unit family present, so mismatched units show side by side
-  per §2.1), category, isChecked, storeId?, sourceRecipeIds: [Recipe]
+  per §2.1), category, isChecked, storeId? (resolved from
+  `CategoryPreference`, or nil while Unassigned, or manually overridden),
+  sourceRecipeIds: [Recipe]
 - `PantryItem`: id, canonicalName, category, inStock (bool), lastUpdated
 - `WeeklyPlanEntry`: id, date, recipeId (one dinner slot per day)
 
@@ -159,9 +191,14 @@ instructions, tags (cuisine/meal type), optional photo, notes.
    (Cloudflare Workers and Vercel both have free tiers that comfortably
    cover two people's recipe imports). Pick whichever you already have an
    account with.
-5. **Default grocery category taxonomy** — draft below; adjust as needed:
-   Produce, Dairy & Eggs, Meat & Seafood, Frozen, Bakery, Pantry/Dry Goods,
+5. **Default grocery category taxonomy** — draft below; adjust as needed.
+   `Meat` and `Seafood` are split (rather than one "Meat & Seafood" category)
+   specifically so each can get its own preferred store:
+   Produce, Dairy & Eggs, Meat, Seafood, Frozen, Bakery, Pantry/Dry Goods,
    Spices & Condiments, Beverages, Household/Other.
+   Suggested starting preferences given your stores: Meat → Avedano's,
+   Seafood → Billingsgate, everything else → whichever of Whole
+   Foods/Safeway/The Good Life you tend to default to — confirm at home.
 
 ## 7. Suggested build order (phases)
 
