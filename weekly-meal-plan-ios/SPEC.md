@@ -45,10 +45,19 @@ requires **CloudKit Sharing (`CKShare`)**:
 - Items added manually, or generated from recipes / the weekly plan.
 - Each item tagged with a **category** (produce, dairy, meat, frozen, pantry,
   etc.).
-- **Stores:** user-defined list of stores you shop at (e.g. "Trader Joe's",
-  "Costco"). Each store has its own **aisle/section order** you configure
-  once (drag-to-reorder categories) — the shopping list for that store sorts
-  items by that order so you walk the store once, front to back.
+- **Stores:** user-defined list of stores you shop at. Your actual list:
+  Whole Foods, Avedano's, Billingsgate, Safeway, The Good Life, and a
+  catch-all "Other" for occasional trips elsewhere. Each store has its own
+  **aisle/section order** you configure once (drag-to-reorder categories) —
+  the shopping list for that store sorts items by that order so you walk the
+  store once, front to back.
+  - Note: a full-service grocery store (Whole Foods, Safeway, The Good Life)
+    will use most/all categories in its order. A specialty single-category
+    shop (Avedano's = butcher, Billingsgate = seafood) just needs the one or
+    two categories it actually carries — the data model (§5, `Store.
+    sectionOrder`) already supports a short list, no special-casing needed.
+  - "Other" has no fixed section order; items assigned to it just show
+    unsorted, or sorted by the app-wide default category order.
 - The list is a standing "next week" list: items persist and get added to /
   checked off continuously rather than being wiped each week — checked-off
   items clear, but the list itself carries forward.
@@ -143,9 +152,9 @@ instructions, tags (cuisine/meal type), optional photo, notes.
 2. **Apple Developer Program** ($99/yr) — needed for CloudKit in production
    and for installs that don't expire every 7 days. Confirm you're enrolled
    (or plan to enroll) before Phase 0.
-3. **Initial store list + aisle order** for each (can configure in-app, but
-   good to know going in — e.g. Trader Joe's, Costco, and their section
-   order).
+3. ~~Initial store list~~ — **resolved:** Whole Foods, Avedano's,
+   Billingsgate, Safeway, The Good Life, Other (see §2.1). Aisle/section
+   order per store still to be configured in-app.
 4. **Serverless proxy hosting** — where the AI-parsing function lives
    (Cloudflare Workers and Vercel both have free tiers that comfortably
    cover two people's recipe imports). Pick whichever you already have an
