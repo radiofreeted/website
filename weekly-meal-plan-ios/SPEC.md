@@ -11,8 +11,14 @@ Decisions locked in during spec discussion:
 - **Sync:** Apple CloudKit, shared between the two of you via `CKShare` (like
   sharing a Note or Reminders list) — no custom backend/server to run or pay
   for.
-- **Recipe parsing:** AI-parsed. Pasted text or fetched web pages get sent to
-  an LLM to extract structured ingredients/instructions.
+- **Recipe parsing:** AI-parsed via a small serverless proxy (keeps the API
+  key off both phones). Pasted text or fetched web pages get sent to an LLM
+  to extract structured ingredients/instructions.
+- **Weekly plan:** one meal slot per day (dinner) — not separate
+  breakfast/lunch/dinner slots.
+- **Shopping list:** same ingredient appearing in multiple recipes in a week
+  gets **combined into one line** with summed quantity, not listed
+  separately. See §2.1 for what this requires.
 - **Build order:** roughly all four pillars (list, recipes, weekly plan,
   inventory) in parallel, but see §7 for a sane compile-order.
 
@@ -46,6 +52,19 @@ requires **CloudKit Sharing (`CKShare`)**:
 - The list is a standing "next week" list: items persist and get added to /
   checked off continuously rather than being wiped each week — checked-off
   items clear, but the list itself carries forward.
+- **Quantity merging:** when two recipes need the same ingredient in the
+  same week, the list shows one combined line (e.g. "Onions: 3") instead of
+  duplicates. This requires:
+  - **Canonical ingredient names.** The AI parser must normalize ingredient
+    names during import (e.g. "yellow onion", "onion, diced" → `onion`) so
+    matching is reliable. Store both the canonical name (used for merging)
+    and the original text (shown in the recipe view).
+  - **Unit families for safe conversion.** Only auto-sum within a compatible
+    unit family: volume (tsp/tbsp/cup/fl oz), weight (oz/lb/g), or count
+    (whole items). Never guess across families (e.g. "1 onion" + "1 cup
+    diced onion") — when units don't reconcile, show both quantities on one
+    line for the human to eyeball ("Onions: 2 whole + 1 cup diced") rather
+    than silently dropping or mis-adding one.
 
 ### 2.2 Recipe library
 Import paths:
@@ -62,8 +81,9 @@ ingredients (structured: name, quantity, unit, shopping category),
 instructions, tags (cuisine/meal type), optional photo, notes.
 
 ### 2.3 Weekly meal plan
-- Simple week view (breakfast/lunch/dinner, or just "meal" slots per day —
-  confirm during build) with recipes assigned to days.
+- Simple week view, **one meal (dinner) slot per day**, with a recipe
+  assigned to each day. (Breakfast/lunch tracking is out of scope for v1 —
+  revisit only if it turns out you actually want to plan those too.)
 - "Add ingredients to shopping list" per meal or for the whole week at once —
   this is the main bridge between planning and shopping.
 - Plan rolls forward; you can plan next week while this week is still active.
@@ -87,18 +107,17 @@ instructions, tags (cuisine/meal type), optional photo, notes.
 - **Persistence + sync:** SwiftData (or Core Data) backed by
   `NSPersistentCloudKitContainer`, using a shared CloudKit zone + `CKShare`
   as described in §1.
-- **AI recipe parsing:** call an LLM (Claude API) with pasted text or
-  extracted page text, asking for structured JSON back (title, servings,
-  ingredients array with name/qty/unit/category, instructions array, tags).
-  - **Do not embed the API key in the app binary**, even for personal use —
-    if this repo or the Xcode project is ever pushed anywhere public, a
-    hardcoded key leaks. Use one of:
-    a) a tiny serverless proxy (a single Cloudflare Worker/Vercel function
-       that holds the key and forwards parse requests), or
-    b) a user-supplied key entered in Settings and stored in the iOS
-       Keychain.
-  Recommend (a) for a smoother experience for both of you; (b) if you'd
-  rather avoid standing up any hosted piece at all.
+- **AI recipe parsing:** call an LLM (Claude API) through a small serverless
+  proxy (one Cloudflare Worker or Vercel function that holds the API key and
+  forwards parse requests) — **never embed the key in the app binary**, even
+  for personal use, since a hardcoded key in a pushed repo/Xcode project
+  leaks. Send pasted text or extracted page text; ask for structured JSON
+  back: title, servings, ingredients array (original text, canonical name,
+  qty, unit, unit family, shopping category), instructions array, tags.
+  The parser prompt is responsible for producing the **canonical ingredient
+  name** and **unit family** used for shopping-list merging (§2.1) — get
+  this right in the parser rather than trying to reconcile inconsistent
+  names later in the app.
 - **Web fetching:** `URLSession` to fetch recipe page HTML; parse
   `<script type="application/ld+json">` blocks for `@type: Recipe` first;
   fall back to AI parsing of the visible article text.
@@ -107,25 +126,33 @@ instructions, tags (cuisine/meal type), optional photo, notes.
 
 - `Recipe`: id, title, source, sourceURL?, servings, tags[], notes?, photo?,
   createdAt
-- `Ingredient`: id, recipeId, name, quantity, unit, category
+- `Ingredient`: id, recipeId, originalText, canonicalName, quantity, unit,
+  unitFamily (volume/weight/count), category
 - `Store`: id, name, sectionOrder: [Category] (ordered)
-- `ShoppingListItem`: id, name, quantity?, unit?, category, isChecked,
-  storeId?, sourceRecipeId?
-- `PantryItem`: id, name, category, inStock (bool), lastUpdated
-- `WeeklyPlanEntry`: id, date, mealSlot (breakfast/lunch/dinner), recipeId
+- `ShoppingListItem`: id, canonicalName, displayQuantities: [(quantity, unit)]
+  (one entry per unit family present, so mismatched units show side by side
+  per §2.1), category, isChecked, storeId?, sourceRecipeIds: [Recipe]
+- `PantryItem`: id, canonicalName, category, inStock (bool), lastUpdated
+- `WeeklyPlanEntry`: id, date, recipeId (one dinner slot per day)
 
 ## 6. Open questions to settle when you start building at home
 
-1. Which of you is the CloudKit share **owner**?
-2. Meal slots: breakfast/lunch/dinner, or just one "dinner" slot per day
-   (simpler, probably matches real usage better)?
-3. AI parsing proxy: stand up a tiny serverless function, or keep-it-simple
-   with a Keychain-stored personal API key for v1?
-4. Apple Developer Program ($99/yr) — needed for CloudKit in production and
-   for installs that don't expire every 7 days. Confirm you're enrolled (or
-   plan to enroll) before Phase 0.
-5. Initial store list + aisle order for each (can configure in-app, but
-   good to know going in).
+1. **CloudKit share owner** — whose Apple ID holds the canonical zone that
+   gets shared to the other phone. Deliberately left open; decide together
+   before Phase 0 (whoever's phone you set up first is the natural owner).
+2. **Apple Developer Program** ($99/yr) — needed for CloudKit in production
+   and for installs that don't expire every 7 days. Confirm you're enrolled
+   (or plan to enroll) before Phase 0.
+3. **Initial store list + aisle order** for each (can configure in-app, but
+   good to know going in — e.g. Trader Joe's, Costco, and their section
+   order).
+4. **Serverless proxy hosting** — where the AI-parsing function lives
+   (Cloudflare Workers and Vercel both have free tiers that comfortably
+   cover two people's recipe imports). Pick whichever you already have an
+   account with.
+5. **Default grocery category taxonomy** — draft below; adjust as needed:
+   Produce, Dairy & Eggs, Meat & Seafood, Frozen, Bakery, Pantry/Dry Goods,
+   Spices & Condiments, Beverages, Household/Other.
 
 ## 7. Suggested build order (phases)
 
