@@ -104,23 +104,41 @@ requires **CloudKit Sharing (`CKShare`)**:
     than silently dropping or mis-adding one.
 
 ### 2.2 Recipe library
-Import paths:
-- **Paste from Notion** — paste raw copied text; AI parses it into a
-  structured recipe.
-- **Web URL** (NYT Cooking or any recipe blog) — fetch the page, first look
-  for embedded `schema.org/Recipe` structured data (most recipe sites,
-  including NYT Cooking, embed this — free, instant, no AI needed). If
-  absent, fall back to sending extracted page text to the AI parser.
-- **Manual entry** as a fallback for anything.
+
+**Favorites.** Every recipe has a favorite toggle (star/heart). The library
+view has a Favorites filter/tab as the default landing spot — this is your
+"pick from" set for weekly planning — with a separate search/browse view to
+reach the rest of the library when you want something new or occasional.
+
+**Add Recipe flow** (the import method):
+1. Choose a method: **Paste Text**, **From URL**, or **Manual Entry**.
+2. *Paste Text* — paste raw copied text (e.g. from Notion); sent to the AI
+   parser (§4) to extract a structured draft.
+3. *From URL* — fetch the page; try `schema.org/Recipe` structured data
+   first (most recipe sites, including NYT Cooking, embed this — free,
+   instant, no AI call needed). If absent, extract the visible article text
+   and fall back to the AI parser.
+4. *Manual Entry* — blank form, filled in by hand.
+5. **Review/edit screen** — regardless of path, every import lands on an
+   editable draft (title, servings, tags, ingredients — each with name/
+   canonical name/qty/unit/category editable — instructions) before it's
+   saved. This is a deliberate checkpoint: AI-parsed canonical names and
+   units feed straight into shopping-list merging (§2.1), so a bad parse
+   caught and fixed here keeps that data clean at the source instead of
+   producing a garbled shopping list two weeks later.
+6. Save to library; optionally mark as favorite right away.
 
 Each recipe stores: title, source (URL or "pasted"/"manual"), servings,
-ingredients (structured: name, quantity, unit, shopping category),
-instructions, tags (cuisine/meal type), optional photo, notes.
+ingredients (structured: original text, canonical name, quantity, unit, unit
+family, shopping category), instructions, tags (cuisine/meal type), optional
+photo, notes, isFavorite.
 
 ### 2.3 Weekly meal plan
 - Simple week view, **one meal (dinner) slot per day**, with a recipe
   assigned to each day. (Breakfast/lunch tracking is out of scope for v1 —
   revisit only if it turns out you actually want to plan those too.)
+- Assigning a day's recipe opens the recipe picker described in §2.2:
+  Favorites first, full library search as a secondary option.
 - "Add ingredients to shopping list" per meal or for the whole week at once —
   this is the main bridge between planning and shopping.
 - Plan rolls forward; you can plan next week while this week is still active.
@@ -162,7 +180,7 @@ instructions, tags (cuisine/meal type), optional photo, notes.
 ## 5. Data model (sketch)
 
 - `Recipe`: id, title, source, sourceURL?, servings, tags[], notes?, photo?,
-  createdAt
+  isFavorite, createdAt
 - `Ingredient`: id, recipeId, originalText, canonicalName, quantity, unit,
   unitFamily (volume/weight/count), category
 - `Store`: id, name, sectionOrder: [Category] (ordered)
