@@ -133,6 +133,24 @@ ingredients (structured: original text, canonical name, quantity, unit, unit
 family, shopping category), instructions, tags (cuisine/meal type), optional
 photo, notes, isFavorite.
 
+**NYT Cooking specifically:** NYT Cooking is subscription-gated, so a plain
+page fetch (no login session) may not return the full recipe.
+- Try **From URL** first — some paywalled sites still expose
+  `schema.org/Recipe` JSON-LD to logged-out requests for Google's recipe
+  rich snippets, so this sometimes works for free/instantly.
+- If the fetch comes back truncated/paywalled, **don't silently save a
+  partial recipe** — surface "couldn't get the full recipe, paste the text
+  instead" and fall back to **Paste Text**: as a subscriber you can already
+  read/copy the recipe in the NYT Cooking app or site, so pasting that copied
+  text is the reliable path regardless of the paywall (it reuses content
+  you're already entitled to view, not a scrape).
+- There's no public third-party API for NYT Cooking's catalog, so the app
+  can't offer an in-app "browse NYT's library" screen — you still
+  discover/browse recipes in NYT's own app/site, and bring the ones you want
+  into this app's library via the import flow above. Browsing within *this*
+  app (Favorites, search, tags) applies to your saved library, not NYT's
+  full catalog.
+
 ### 2.3 Weekly meal plan
 - Simple week view, **one meal (dinner) slot per day**, with a recipe
   assigned to each day. (Breakfast/lunch tracking is out of scope for v1 —
