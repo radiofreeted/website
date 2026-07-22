@@ -111,15 +111,22 @@ view has a Favorites filter/tab as the default landing spot — this is your
 reach the rest of the library when you want something new or occasional.
 
 **Add Recipe flow** (the import method):
-1. Choose a method: **Paste Text**, **From URL**, or **Manual Entry**.
+1. Choose a method: **Paste Text**, **From URL**, **Photo/Screenshot**, or
+   **Manual Entry**.
 2. *Paste Text* — paste raw copied text (e.g. from Notion); sent to the AI
    parser (§4) to extract a structured draft.
 3. *From URL* — fetch the page; try `schema.org/Recipe` structured data
    first (most recipe sites, including NYT Cooking, embed this — free,
    instant, no AI call needed). If absent, extract the visible article text
    and fall back to the AI parser.
-4. *Manual Entry* — blank form, filled in by hand.
-5. **Review/edit screen** — regardless of path, every import lands on an
+4. *Photo/Screenshot* — pick or take a photo (from the photo library or
+   camera) and send it to the AI parser's vision input instead of text.
+   Covers cases where copy-paste is awkward or blocked (e.g. some apps
+   disable text selection), plus sources with no digital text at all —
+   physical cookbook pages, handwritten family recipe cards, a screenshot of
+   the NYT Cooking app. Works as a general-purpose fallback for any source.
+5. *Manual Entry* — blank form, filled in by hand.
+6. **Review/edit screen** — regardless of path, every import lands on an
    editable draft (title, servings, tags, ingredients — each with name/
    canonical name/qty/unit/category editable — instructions) before it's
    saved. This is a deliberate checkpoint: AI-parsed canonical names and
@@ -140,10 +147,11 @@ page fetch (no login session) may not return the full recipe.
   rich snippets, so this sometimes works for free/instantly.
 - If the fetch comes back truncated/paywalled, **don't silently save a
   partial recipe** — surface "couldn't get the full recipe, paste the text
-  instead" and fall back to **Paste Text**: as a subscriber you can already
-  read/copy the recipe in the NYT Cooking app or site, so pasting that copied
-  text is the reliable path regardless of the paywall (it reuses content
-  you're already entitled to view, not a scrape).
+  or take a screenshot instead" and fall back to **Paste Text** or
+  **Photo/Screenshot**: as a subscriber you can already read/copy/screenshot
+  the recipe in the NYT Cooking app or site, so either reuses content you're
+  already entitled to view, not a scrape. Screenshot is the more reliable
+  fallback of the two if the NYT app makes text selection annoying.
 - There's no public third-party API for NYT Cooking's catalog, so the app
   can't offer an in-app "browse NYT's library" screen — you still
   discover/browse recipes in NYT's own app/site, and bring the ones you want
@@ -184,9 +192,12 @@ page fetch (no login session) may not return the full recipe.
   proxy (one Cloudflare Worker or Vercel function that holds the API key and
   forwards parse requests) — **never embed the key in the app binary**, even
   for personal use, since a hardcoded key in a pushed repo/Xcode project
-  leaks. Send pasted text or extracted page text; ask for structured JSON
-  back: title, servings, ingredients array (original text, canonical name,
-  qty, unit, unit family, shopping category), instructions array, tags.
+  leaks. Send pasted text, extracted page text, **or a photo** (Claude
+  accepts image input directly — no separate OCR step needed) for the
+  Photo/Screenshot import path; ask for the same structured JSON back
+  regardless of input type: title, servings, ingredients array (original
+  text, canonical name, qty, unit, unit family, shopping category),
+  instructions array, tags.
   The parser prompt is responsible for producing the **canonical ingredient
   name** and **unit family** used for shopping-list merging (§2.1) — get
   this right in the parser rather than trying to reconcile inconsistent
